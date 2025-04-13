@@ -1,4 +1,5 @@
 import { createClient } from "redis";
+import { promisify } from 'util';
 
 
 
@@ -16,9 +17,6 @@ class RedisClient {
             this.alive = true;
         });
 
-        this.client.connect().catch((error) => {
-            console.error('Failed to connect to Redis server:', error);
-          });
     }
 
     isAlive() {
@@ -26,12 +24,14 @@ class RedisClient {
     }
 
     async get(key) {
-        return this.client.get(key);
+        return await promisify(this.client.GET).bind(this.client)(key);
     }
 
     async set(key, value, duration) {
-        const rep = await this.client.set(key, value, {
-            EX: duration 
+        this.client.set(key, value, "EX", duration, (err, rep) => {
+            if (err) {
+                console.log(err);
+            }
         });
     }
 
