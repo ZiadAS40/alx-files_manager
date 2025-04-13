@@ -5,7 +5,7 @@ import { createClient } from "redis";
 class RedisClient {
     constructor () {
         this.client =  createClient();
-        this.alive = false;
+        this.alive = true;
 
         this.client.on("error", (error) => {
             this.alive = false;
@@ -26,7 +26,7 @@ class RedisClient {
     }
 
     async get(key) {
-        return await this.client.get(key);
+        return this.client.get(key);
     }
 
     async set(key, value, duration) {
