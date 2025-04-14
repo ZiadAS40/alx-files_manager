@@ -3,33 +3,43 @@ import { MongoClient } from 'mongodb';
 class DBClient {
   constructor() {
     const db = process.env.DB_HOST || 'files_manager';
-    const port = process.env.DB_POR || 27017;
+    const port = process.env.DB_PORT || 27017;
     const host = process.env.DB_DATABASE || 'localhost';
 
     const url = `mongodb://${host}:${port}`;
-    this.client = new MongoClient(url);
-    this.client.connect();
-    this.db = this.client.db(db);
+    MongoClient.connect(url, { useUnifiedTopology: true }, (err, client) => {
+      if (!err) {
+        this.db = client.db(db);
+        this.userCollection = this.db.collection('users');
+        this.filesCollection = this.db.collection('files');
+      } else {
+        this.db = false;
+      }
+    });
   }
 
   isAlive() {
-    return this.client.connect.isConnected();
+    return Boolean(this.db);
   }
 
   async nbUsers() {
-    const userCollection = this.db.collection('users');
-    const users = await userCollection.find().catch((e) => {
+    try {
+      const users = await this.userCollection.find().toArray();
+      return users.length;
+    } catch (e) {
       console.log(e);
-    });
-    return users.length;
+      return null;
+    }
   }
 
   async nbFiles() {
-    const fileCollection = this.db.collection('files');
-    const files = await fileCollection.find().catch((e) => {
+    try {
+      const files = await this.filesCollection.find().toArray();
+      return files.length;
+    } catch (e) {
       console.log(e);
-    });
-    return files.length;
+      return null;
+    }
   }
 }
 
