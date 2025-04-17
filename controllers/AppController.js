@@ -13,10 +13,11 @@ const getStatus = (req, res) => {
 };
 
 const getStats = async (req, res) => {
-  const users = await dbClient.userCollection.find().toArray();
-  const files = await dbClient.filesCollection.find().toArray();
+  const users = await dbClient.nbUsers();
+  const files = await dbClient.nbFiles();
 
-  res.status(200).json({ users: users.length, files: files.length });
+  res.status(200).json({ users, files });
 };
 
-module.exports = { getStatus, getStats };
+module.exports.getStatus = getStatus;
+module.exports.getStats = getStats;

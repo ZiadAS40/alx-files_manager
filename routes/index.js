@@ -1,11 +1,10 @@
-import { getStatus, getStats } from '../controllers/AppController';
-
 const express = require('express');
+const AppController = require('../controllers/AppController');
 
 const router = express.Router();
 
-router.get('/status', getStatus);
+router.get('/status', AppController.getStatus);
 
-router.get('/stats', getStats);
+router.get('/stats', AppController.getStats);
 
 module.exports = router;
