@@ -5,6 +5,7 @@ const getStatus = (req, res) => {
   if (redisClient.isAlive() && dbClient.isAlive()) {
     return res.status(200).json({ redis: true, db: true });
   }
+  return res.status(404);
 };
 
 const getStats = async (req, res) => {

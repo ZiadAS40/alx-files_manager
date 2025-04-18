@@ -1,5 +1,7 @@
 import crypto from 'crypto';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
 
 function hashPasswordSHA1(password) {
   return crypto.createHash('sha1').update(password).digest('hex');
@@ -26,4 +28,16 @@ const postNew = async (req, res) => {
   return res.status(201).json({ id: insertInof.insertedId.toString(), email });
 };
 
+const getMe = async (req, res) => {
+  const token = req.headers['x-token'] || null;
+  const userId = await redisClient.get(`auth_${token}`);
+  if (!userId) return res.status(401).json({ err: 'Unathorized' });
+
+  const dbUserId = new ObjectId(userId);
+  const user = await dbClient.userCollection.findOne({ _id: dbUserId });
+
+  return res.status(200).json({ email: user.email, id: userId });
+};
+
 module.exports.postNew = postNew;
+module.exports.getMe = getMe;
