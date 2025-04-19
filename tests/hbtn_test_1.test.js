@@ -1,24 +1,28 @@
 import chai from 'chai';
 import chaiHttp from 'chai-http';
 
-import MongoClient from 'mongodb';
+import { v4 as uuidv4 } from 'uuid';
+
+import { MongoClient, ObjectID } from 'mongodb';
 import { promisify } from 'util';
 import redis from 'redis';
 import sha1 from 'sha1';
 
 chai.use(chaiHttp);
 
-describe('GET /connect', () => {
+describe('POST /files', () => {
     let testClientDb;
     let testRedisClient;
     let redisDelAsync;
     let redisGetAsync;
     let redisSetAsync;
     let redisKeysAsync;
-    
+
     let initialUser = null;
-    let initialUserPwd = null;
     let initialUserId = null;
+    let initialUserToken = null;
+
+    let initialFolderId = null;
 
     const fctRandomString = () => {
         return Math.random().toString(36).substring(2, 15);
@@ -41,16 +45,29 @@ describe('GET /connect', () => {
                 testClientDb = client.db(dbInfo.database);
             
                 await testClientDb.collection('users').deleteMany({})
+                await testClientDb.collection('files').deleteMany({})
 
                 // Add 1 user
-                initialUserPwd = fctRandomString();
                 initialUser = { 
                     email: `${fctRandomString()}@me.com`,
-                    password: sha1(initialUserPwd)
+                    password: sha1(fctRandomString())
                 }
                 const createdDocs = await testClientDb.collection('users').insertOne(initialUser);
                 if (createdDocs && createdDocs.ops.length > 0) {
                     initialUserId = createdDocs.ops[0]._id.toString();
+                }
+
+                // Add 1 folder
+                const initialFakeFolder = { 
+                    userId: ObjectID(initialUserId), 
+                    name: "newFolder", 
+                    type: "file", 
+                    data: Buffer.from("hello", 'binary').toString('base64'),
+                    parentId: '0' 
+                };
+                const createdFileDocs = await testClientDb.collection('files').insertOne(initialFakeFolder);
+                if (createdFileDocs && createdFileDocs.ops.length > 0) {
+                    initialFolderId = createdFileDocs.ops[0]._id.toString();
                 }
 
                 testRedisClient = redis.createClient();
@@ -60,6 +77,10 @@ describe('GET /connect', () => {
                 redisKeysAsync = promisify(testRedisClient.keys).bind(testRedisClient);
                 testRedisClient.on('connect', async () => {
                     fctRemoveAllRedisKeys();
+
+                    // Set token for this user
+                    initialUserToken = uuidv4()
+                    await redisSetAsync(`auth_${initialUserToken}`, initialUserId)
                     resolve();
                 });
             }); 
@@ -70,22 +91,31 @@ describe('GET /connect', () => {
         fctRemoveAllRedisKeys();
     });
 
-    it('GET /connect with unknown user email', (done) => {
-        const basicAuth = `Basic ${Buffer.from(`fake_${initialUser.email}:${initialUserPwd}`, 'binary').toString('base64')}`;
+    it('POST /files with a parentId not a folder', (done) => {
+        const fileData = {
+            name: fctRandomString(),
+            type: 'folder',
+            parentId: initialFolderId
+        }
         chai.request('http://localhost:5000')
-            .get('/connect')
-            .set('Authorization', basicAuth)
+            .post('/files')
+            .set('X-Token', initialUserToken)
+            .send(fileData)
             .end(async (err, res) => {
                 chai.expect(err).to.be.null;
-                chai.expect(res).to.have.status(401);
-                
-                const resError = res.body.error;
-                chai.expect(resError).to.equal("Unauthorized");
-                
-                const authKeys = await redisKeysAsync('auth_*');
-                chai.expect(authKeys.length).to.equal(0);
+                chai.expect(res).to.have.status(400);
 
-                done();
+                const resError = res.body.error;
+                chai.expect(resError).to.equal("Parent is not a folder");
+                
+                testClientDb.collection('files')
+                    .find({})
+                    .toArray((err, docs) => {
+                        chai.expect(err).to.be.null;
+                        chai.expect(docs.length).to.equal(1);
+
+                        done();
+                    })
             });
     }).timeout(30000);
 });

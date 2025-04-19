@@ -9,7 +9,7 @@ const postUpload = async (req, res) => {
   const token = req.headers['x-token'];
   const name = req.body.name || null;
   const type = req.body.type || null;
-  const parentId = req.body.parentid || 0;
+  const parentId = req.body.parentId || 0;
   const isPublic = req.body.ispublic || false;
   const data = req.body.data || null;
 
