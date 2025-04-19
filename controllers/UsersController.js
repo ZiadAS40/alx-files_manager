@@ -30,8 +30,10 @@ const postNew = async (req, res) => {
 
 const getMe = async (req, res) => {
   const token = req.headers['x-token'] || null;
+
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
   const userId = await redisClient.get(`auth_${token}`);
-  if (!userId) return res.status(401).json({ err: 'Unathorized' });
+  if (!userId) return res.status(401).json({ err: 'Unauthorized' });
 
   const dbUserId = new ObjectId(userId);
   const user = await dbClient.userCollection.findOne({ _id: dbUserId });
@@ -41,3 +43,4 @@ const getMe = async (req, res) => {
 
 module.exports.postNew = postNew;
 module.exports.getMe = getMe;
+module.exports.hashPasswordSHA1 = hashPasswordSHA1;
